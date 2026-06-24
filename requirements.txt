@@ -2,3 +2,9 @@ python-jobspy
 google-generativeai
 pandas
 resend
+fastapi[standard]
+uvicorn
+sqlalchemy
+psycopg2-binary
+pydantic-settings
+apscheduler
