@@ -26,7 +26,16 @@ def _patched_from_string(cls, country_str):
 _jm.Country.from_string = _patched_from_string
 
 JOB_TITLES = ["Backend Engineer", "AI Engineer", "Software Engineer"]
-LOCATION = "Remote"
+LOCATIONS = [
+    ("Remote", True),
+    ("Nigeria", False),
+    ("United States", False),
+    ("United Kingdom", False),
+    ("Netherlands", False),
+    ("Germany", False),
+    ("Kenya", False),
+    ("South Africa", False),
+]
 SENDER_IDENTITY = "AI Agent <onboarding@resend.dev>"
 SCORE_THRESHOLD = 65
 
@@ -34,20 +43,28 @@ SCORE_THRESHOLD = 65
 def get_jobs():
     print("Scraping jobs...")
     all_jobs = []
+    seen_urls = set()
     for title in JOB_TITLES:
-        jobs_df = scrape_jobs(
-            site_name=["linkedin"],
-            search_term=title,
-            location=LOCATION,
-            results_wanted=15,
-            is_remote=True,
-        )
-        if not jobs_df.empty:
-            all_jobs.extend(
-                jobs_df[["title", "company", "job_url", "description", "job_type"]]
-                .fillna("")
-                .to_dict("records")
+        for location, is_remote in LOCATIONS:
+            jobs_df = scrape_jobs(
+                site_name=["linkedin"],
+                search_term=title,
+                location=location,
+                results_wanted=10,
+                is_remote=is_remote,
             )
+            if not jobs_df.empty:
+                for _, row in jobs_df.iterrows():
+                    url = row.get("job_url", "")
+                    if url and url not in seen_urls:
+                        seen_urls.add(url)
+                        all_jobs.append({
+                            "title": row.get("title", ""),
+                            "company": row.get("company", ""),
+                            "job_url": url,
+                            "description": row.get("description", ""),
+                            "job_type": row.get("job_type", ""),
+                        })
     return all_jobs
 
 

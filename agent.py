@@ -24,7 +24,16 @@ _jm.Country.from_string = _patched_from_string
 
 # --- CONFIGURATION ---
 JOB_TITLES = ["Backend Engineer", "AI Engineer", "Software Engineer"]
-LOCATION = "Remote"
+LOCATIONS = [
+    ("Remote", True),
+    ("Nigeria", False),
+    ("United States", False),
+    ("United Kingdom", False),
+    ("Netherlands", False),
+    ("Germany", False),
+    ("Kenya", False),
+    ("South Africa", False),
+]
 EMAIL_RECEIVER = os.getenv("EMAIL_RECEIVER") 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
@@ -35,16 +44,28 @@ SENDER_IDENTITY = "AI Agent <onboarding@resend.dev>" # Update to your verified d
 def get_jobs():
     print("Scraping jobs...")
     all_jobs = []
+    seen_urls = set()
     for title in JOB_TITLES:
-        jobs_df = scrape_jobs(
-            site_name=["linkedin"], 
-            search_term=title,
-            location=LOCATION,
-            results_wanted=15, 
-            is_remote=True,
-        )
-        if not jobs_df.empty:
-            all_jobs.extend(jobs_df[['title', 'company', 'job_url', 'description', 'job_type']].fillna("").to_dict('records'))
+        for location, is_remote in LOCATIONS:
+            jobs_df = scrape_jobs(
+                site_name=["linkedin"],
+                search_term=title,
+                location=location,
+                results_wanted=10,
+                is_remote=is_remote,
+            )
+            if not jobs_df.empty:
+                for _, row in jobs_df.iterrows():
+                    url = row.get("job_url", "")
+                    if url and url not in seen_urls:
+                        seen_urls.add(url)
+                        all_jobs.append({
+                            "title": row.get("title", ""),
+                            "company": row.get("company", ""),
+                            "job_url": url,
+                            "description": row.get("description", ""),
+                            "job_type": row.get("job_type", ""),
+                        })
     return all_jobs
 
 def evaluate_jobs(jobs):

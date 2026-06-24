@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
@@ -25,6 +26,13 @@ async def lifespan(app: FastAPI):
 
     scheduler.add_job(
         run_scheduled_pipeline,
+        "date",
+        run_date=datetime.now(timezone.utc) + timedelta(seconds=5),
+        id="immediate_run",
+    )
+
+    scheduler.add_job(
+        run_scheduled_pipeline,
         "cron",
         hour=settings.daily_cron_hour,
         timezone=settings.daily_cron_timezone,
@@ -32,7 +40,7 @@ async def lifespan(app: FastAPI):
         replace_existing=True,
     )
     scheduler.start()
-    print(f"[Scheduler] Daily pipeline scheduled for hour={settings.daily_cron_hour} {settings.daily_cron_timezone}")
+    print(f"[Scheduler] Immediate run scheduled (5s delay), daily at hour={settings.daily_cron_hour} {settings.daily_cron_timezone}")
 
     yield
 
