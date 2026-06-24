@@ -89,8 +89,9 @@ def evaluate_jobs(jobs):
     2. Score the job from 0 to 100 based on how well it aligns with my modern backend (NestJS/Postgres) and AI engineering skills.
     3. Tag it with one of: "Highly Aligned", "Good Match", "Worth a Shot", "Skip".
     4. Write a 1-sentence reasoning for your score.
+    5. Write a 1-sentence brief about the company (what they do, their industry).
     
-    Return a JSON array of objects with the following keys: "title", "company", "job_url", "score", "tag", "reasoning".
+    Return a JSON array of objects with the following keys: "title", "company", "job_url", "score", "tag", "reasoning", "company_brief".
     
     Jobs Data:
     {json.dumps(jobs)}
@@ -116,6 +117,7 @@ def send_email(sorted_jobs):
                 <strong style="color: {color};">Score: {job['score']}/100</strong> | 
                 <span style="background: #eee; padding: 2px 6px; border-radius: 4px; font-size: 12px;">{job['tag']}</span>
             </p>
+            <p style="margin: 2px 0; color: #666; font-size: 13px;">{job['company_brief']}</p>
             <p style="margin: 5px 0; color: #444; font-size: 14px;"><em>{job['reasoning']}</em></p>
         </div>
         """

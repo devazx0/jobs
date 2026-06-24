@@ -14,6 +14,7 @@ class JobResponse(BaseModel):
     score: int
     tag: str
     reasoning: str
+    company_brief: str = ""
     applied: bool
     notes: Optional[str] = None
     applied_at: Optional[datetime] = None

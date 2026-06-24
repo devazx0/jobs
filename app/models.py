@@ -17,6 +17,7 @@ class Job(Base):
     score = Column(Integer, default=0)
     tag = Column(String, default="")
     reasoning = Column(Text, default="")
+    company_brief = Column(Text, default="", nullable=True)
     applied = Column(Boolean, default=False)
     notes = Column(Text, nullable=True)
     applied_at = Column(DateTime, nullable=True)
