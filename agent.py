@@ -3,7 +3,8 @@ import json
 from dotenv import load_dotenv
 import resend
 from jobspy import scrape_jobs
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 load_dotenv()
 
@@ -47,33 +48,34 @@ def get_jobs():
     seen_urls = set()
     for title in JOB_TITLES:
         for location, is_remote in LOCATIONS:
-            jobs_df = scrape_jobs(
-                site_name=["linkedin"],
-                search_term=title,
-                location=location,
-                results_wanted=10,
-                is_remote=is_remote,
-            )
-            if not jobs_df.empty:
-                for _, row in jobs_df.iterrows():
-                    url = row.get("job_url", "")
-                    if url and url not in seen_urls:
-                        seen_urls.add(url)
-                        all_jobs.append({
-                            "title": row.get("title", ""),
-                            "company": row.get("company", ""),
-                            "job_url": url,
-                            "description": row.get("description", ""),
-                            "job_type": row.get("job_type", ""),
-                        })
+            try:
+                jobs_df = scrape_jobs(
+                    site_name=["linkedin"],
+                    search_term=title,
+                    location=location,
+                    results_wanted=10,
+                    is_remote=is_remote,
+                )
+                if not jobs_df.empty:
+                    for _, row in jobs_df.iterrows():
+                        url = row.get("job_url", "")
+                        if url and url not in seen_urls:
+                            seen_urls.add(url)
+                            all_jobs.append({
+                                "title": row.get("title", ""),
+                                "company": row.get("company", ""),
+                                "job_url": url,
+                                "description": row.get("description", ""),
+                                "job_type": row.get("job_type", ""),
+                            })
+            except Exception as e:
+                print(f"[Scraper] Error scraping '{title}' in '{location}' (is_remote={is_remote}): {e}")
     return all_jobs
 
 def evaluate_jobs(jobs):
     if not jobs: return []
     print(f"Evaluating {len(jobs)} jobs with Gemini Flash...")
-    genai.configure(api_key=GEMINI_API_KEY)
-    
-    model = genai.GenerativeModel('gemini-flash-latest', generation_config={"response_mime_type": "application/json"})
+    client = genai.Client(api_key=GEMINI_API_KEY)
     
     prompt = f"""
     You are an expert technical recruiter and career advisor.
@@ -97,7 +99,13 @@ def evaluate_jobs(jobs):
     {json.dumps(jobs)}
     """
     
-    response = model.generate_content(prompt)
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+        ),
+    )
     evaluated_jobs = json.loads(response.text)
     return sorted(evaluated_jobs, key=lambda x: x['score'], reverse=True)
 
