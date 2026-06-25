@@ -74,40 +74,67 @@ def get_jobs():
 
 def evaluate_jobs(jobs):
     if not jobs: return []
-    print(f"Evaluating {len(jobs)} jobs with Gemini Flash...")
+    print(f"Evaluating {len(jobs)} jobs with Gemini Flash in batches...")
     client = genai.Client(api_key=GEMINI_API_KEY)
     
-    prompt = f"""
-    You are an expert technical recruiter and career advisor.
-    My Profile:
-    - I am a Backend & AI Engineer.
-    - My core stack: Node.js, NestJS, Prisma, TypeORM, PostgreSQL.
-    - Infrastructure/DevOps: Docker, WSL2, Git, Railway, Vercel, DigitalOcean.
-    - AI/Data: Building LLM Agents, Recommendation Systems (Collaborative Filtering, SVD, KNN).
-    - Goal: Looking for remote Full-Time roles OR Freelance/Contract gigs.
-    
-    Review the following job listings. For each job:
-    1. Check if the job type is strictly Full-Time, Contract, or Freelance. If it is unpaid, an internship, or strictly requires legacy enterprise tech, score it 0.
-    2. Score the job from 0 to 100 based on how well it aligns with my modern backend (NestJS/Postgres) and AI engineering skills.
-    3. Tag it with one of: "Highly Aligned", "Good Match", "Worth a Shot", "Skip".
-    4. Write a 1-sentence reasoning for your score.
-    5. Write a 1-sentence brief about the company (what they do, their industry).
-    
-    Return a JSON array of objects with the following keys: "title", "company", "job_url", "score", "tag", "reasoning", "company_brief".
-    
-    Jobs Data:
-    {json.dumps(jobs)}
-    """
-    
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-        ),
-    )
-    evaluated_jobs = json.loads(response.text)
-    return sorted(evaluated_jobs, key=lambda x: x['score'], reverse=True)
+    evaluated_jobs = []
+    batch_size = 25
+    import time
+
+    for i in range(0, len(jobs), batch_size):
+        batch = jobs[i : i + batch_size]
+        print(f"[Gemini] Processing batch {i // batch_size + 1} of {(len(jobs) - 1) // batch_size + 1} (size {len(batch)})...")
+
+        prompt = f"""
+        You are an expert technical recruiter and career advisor.
+        My Profile:
+        - I am a Backend & AI Engineer.
+        - My core stack: Node.js, NestJS, Prisma, TypeORM, PostgreSQL.
+        - Infrastructure/DevOps: Docker, WSL2, Git, Railway, Vercel, DigitalOcean.
+        - AI/Data: Building LLM Agents, Recommendation Systems (Collaborative Filtering, SVD, KNN).
+        - Goal: Looking for remote Full-Time roles OR Freelance/Contract gigs.
+
+        Review the following job listings. For each job:
+        1. Check if the job type is strictly Full-Time, Contract, or Freelance. If it is unpaid, an internship, or strictly requires legacy enterprise tech, score it 0.
+        2. Score the job from 0 to 100 based on how well it aligns with my modern backend (NestJS/Postgres) and AI engineering skills.
+        3. Tag it with one of: "Highly Aligned", "Good Match", "Worth a Shot", "Skip".
+        4. Write a 1-sentence reasoning for your score.
+        5. Write a 1-sentence brief about the company (what they do, their industry).
+
+        Return a JSON array of objects with the following keys: "title", "company", "job_url", "score", "tag", "reasoning", "company_brief".
+
+        Jobs Data:
+        {json.dumps(batch)}
+        """
+
+        response = None
+        for attempt in range(3):
+            try:
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                    ),
+                )
+                break
+            except Exception as e:
+                if attempt == 2:
+                    raise
+                print(f"[Gemini] API call failed for batch (attempt {attempt + 1}/3): {e}. Retrying in {2 ** attempt}s...")
+                time.sleep(2 ** attempt)
+
+        if response and response.text:
+            try:
+                batch_results = json.loads(response.text)
+                if isinstance(batch_results, list):
+                    evaluated_jobs.extend(batch_results)
+                else:
+                    print(f"[Gemini] Warning: Expected JSON list from Gemini, got {type(batch_results)}")
+            except Exception as parse_err:
+                print(f"[Gemini] Error parsing response for batch: {parse_err}. Response text: {response.text[:200]}")
+
+    return sorted(evaluated_jobs, key=lambda x: x.get('score', 0), reverse=True)
 
 def send_email(sorted_jobs):
     print("Sending email via Resend...")
